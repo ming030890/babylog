@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Plus, 
-  Settings as SettingsIcon, 
-  Baby, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  Plus,
+  Baby,
+  RefreshCw,
+  AlertCircle,
   ExternalLink,
   Moon,
   Sun,
@@ -20,10 +19,9 @@ import {
 import { AppState, ActivityLog, SheetConfig } from './types';
 import { initGoogleServices, fetchActivities, appendActivity } from './services/sheetsService';
 import { parseActivityText } from './services/geminiService';
-import { SettingsModal } from './components/SettingsModal';
 import { ActivityInput } from './components/ActivityInput';
 
-const DEFAULT_SHEET_ID = process.env.SHEET_ID || '1IIPHu1IIb3k13TgTOnmG-iPAU-yebz4ptLx85dBHLhA';
+const SHEET_ID = import.meta.env.VITE_SHEET_ID?.trim();
 const DAYS_PER_PAGE = 7;
 
 const formatDate = (isoString: string) => {
@@ -76,7 +74,6 @@ const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.SETUP);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [config, setConfig] = useState<SheetConfig | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -86,17 +83,13 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem('babyLog_config');
-    let initialConfig: SheetConfig = { spreadsheetId: DEFAULT_SHEET_ID };
-
-    if (savedConfig) {
-      try {
-        initialConfig = JSON.parse(savedConfig);
-      } catch (e) {
-        console.error("Failed to parse saved config", e);
-      }
+    if (!SHEET_ID) {
+      setAppState(AppState.ERROR);
+      setErrorMsg('Missing VITE_SHEET_ID. Add it to your .env.local file and restart the app.');
+      return;
     }
-    
+
+    const initialConfig: SheetConfig = { spreadsheetId: SHEET_ID };
     setConfig(initialConfig);
     setAppState(AppState.LOADING);
     initializeServices(initialConfig);
@@ -124,13 +117,6 @@ const App: React.FC = () => {
       setAppState(AppState.ERROR);
       setErrorMsg(err.message || "Failed to load logs. Ensure the Sheet is shared with the service account.");
     }
-  };
-
-  const handleSaveConfig = (newConfig: SheetConfig) => {
-    localStorage.setItem('babyLog_config', JSON.stringify(newConfig));
-    setConfig(newConfig);
-    setIsSettingsOpen(false);
-    initializeServices(newConfig);
   };
 
   const handleLogSubmit = async (text: string) => {
@@ -230,12 +216,6 @@ const App: React.FC = () => {
             className="w-full px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-all shadow-md"
           >
             Try Again
-          </button>
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition-all"
-          >
-            Update Sheet ID
           </button>
         </div>
       </div>
@@ -346,23 +326,15 @@ const App: React.FC = () => {
             BabyLog
           </h1>
         </div>
-        <div className="flex items-center gap-1">
-           {(appState === AppState.READY || appState === AppState.ERROR) && (
-             <button 
-                onClick={() => config && loadLogs(config.spreadsheetId)}
-                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-100 active:scale-95"
-                title="Refresh"
-             >
-                <RefreshCw className="w-5 h-5" />
-             </button>
-           )}
-           <button 
-             onClick={() => setIsSettingsOpen(true)}
-             className="p-2 text-slate-400 hover:text-slate-700 transition-colors rounded-full hover:bg-slate-100 active:scale-95"
-           >
-             <SettingsIcon className="w-6 h-6" />
-           </button>
-        </div>
+        {(appState === AppState.READY || appState === AppState.ERROR) && (
+          <button 
+            onClick={() => config && loadLogs(config.spreadsheetId)}
+            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-100 active:scale-95"
+            title="Refresh"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        )}
       </header>
 
       <main className="max-w-md mx-auto px-4 py-6">
@@ -379,13 +351,6 @@ const App: React.FC = () => {
         </button>
       )}
 
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-        config={config}
-        onSave={handleSaveConfig}
-      />
-      
       <ActivityInput 
         isOpen={isInputOpen} 
         onClose={() => setIsInputOpen(false)} 
