@@ -59,10 +59,11 @@ export const handler = async (event) => {
          - If no time is provided, use the Current System Time exactly.
          - Return as ISO 8601 string.
       2. Event Type:
-         - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed").
+         - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed_ml").
          - If it's a new type of activity, create a concise, lowercase label (e.g., "poo", "sleep", "bath").
       3. Value:
          - Extract details like amount (ml, oz), duration, or notes.
+         - If the event type is "feed_ml", store only the numeric amount without units (e.g., "160").
          - If the input is just the event type (e.g., "poo"), leave value empty or describe strictly if details exist.
       4. Output scope:
          - Only output JSON for the rows to insert.

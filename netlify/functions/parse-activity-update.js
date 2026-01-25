@@ -75,6 +75,7 @@ export const handler = async (event) => {
          - Otherwise keep or create a concise, lowercase label.
       5. Value:
          - Extract updated details like amount, duration, or notes.
+         - If the event type is "feed_ml", store only the numeric amount without units (e.g., "160").
          - If the instruction is too vague to update, return an error message and no activity.
     `;
 

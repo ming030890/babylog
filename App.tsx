@@ -64,7 +64,7 @@ const calculateDailyMilk = (items: ActivityLog[]) => {
   let total = 0;
   items.forEach(item => {
     const t = item.eventType.toLowerCase();
-    if (t.includes('feed') || t.includes('bottle') || t.includes('milk') || t.includes('formula')) {
+    if (t.includes('feed') || t.includes('feed_ml') || t.includes('bottle') || t.includes('milk') || t.includes('formula')) {
       // Try to extract a number from the value string (e.g. "180ml" -> 180)
       const match = item.value.match(/(\d+)/);
       if (match) {
