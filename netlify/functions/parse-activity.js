@@ -1,7 +1,7 @@
-import { GoogleGenAI, Type } from '@google/genai/node';
+import { GoogleGenAI } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+const MODEL_NAME = process.env.GEMINI_STRUCTURED_MODEL || process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -54,16 +54,17 @@ export const handler = async (event) => {
       Task: Parse the User Input into one or more structured baby activity log entries.
       
       Rules:
-      1. Timestamp: 
+      1. Timestamp:
          - If time is provided in input (e.g., "15:00"), combine it with the Current System Date.
          - If no time is provided, use the Current System Time exactly.
          - Return as ISO 8601 string.
       2. Event Type:
-         - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed_ml").
-         - If it's a new type of activity, create a concise, lowercase label (e.g., "poo", "sleep", "bath").
+         - ALWAYS try to reuse one of the "Known Event Types" if semantically similar.
+         - If the input includes an amount in ml (e.g., "190ml"), use the known feed/milk event type (e.g., "Feed (ml)") if available.
+         - If it's a new type of activity and no known type matches, create a concise label based on the input.
       3. Value:
          - Extract details like amount (ml, oz), duration, or notes.
-         - If the event type is "feed_ml", store only the numeric amount without units (e.g., "160").
+         - For feed/milk entries with ml, store only the numeric amount without units (e.g., "160").
          - If the input is just the event type (e.g., "poo"), leave value empty or describe strictly if details exist.
       4. Output scope:
          - Only output JSON for the rows to insert.
@@ -74,6 +75,10 @@ export const handler = async (event) => {
       6. Invalid input:
          - If the input cannot be parsed into any activity, return an error message and an empty activities array.
   
+      Examples:
+      - Input: "20:00 190ml" -> [{ "timestamp": "Today 20:00", "event_type": "Feed (ml)", "value": "190" }]
+      - Input: "18:30 antibiotic cream both ears" -> [{ "event_type": "Antibiotic cream", "value": "both ears" }]
+
       User Input: "${text}"
     `;
 
@@ -82,23 +87,23 @@ export const handler = async (event) => {
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
+        responseJsonSchema: {
+          type: 'object',
           properties: {
             activities: {
-              type: Type.ARRAY,
+              type: 'array',
               description: 'Parsed activity entries',
               items: {
-                type: Type.OBJECT,
+                type: 'object',
                 properties: {
-                  timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
-                  event_type: { type: Type.STRING, description: 'Category of the event' },
-                  value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
+                  timestamp: { type: 'string', description: 'ISO 8601 timestamp' },
+                  event_type: { type: 'string', description: 'Category of the event' },
+                  value: { type: 'string', description: 'Quantity, duration, or notes' },
                 },
                 required: ['timestamp', 'event_type', 'value'],
               },
             },
-            error: { type: Type.STRING, description: 'Error message when input is invalid' },
+            error: { type: 'string', description: 'Error message when input is invalid' },
           },
           required: ['activities'],
         },
