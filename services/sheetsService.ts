@@ -1,69 +1,33 @@
 import { SheetConfig, ActivityLog } from '../types';
-import * as jose from 'jose';
 
-// In Netlify, set these environment variables in Site Settings > Build & Deploy > Environment
-// VITE_SERVICE_ACCOUNT_EMAIL
-// VITE_SERVICE_ACCOUNT_PRIVATE_KEY
-const SERVICE_ACCOUNT = {
-  client_email: import.meta.env.VITE_SERVICE_ACCOUNT_EMAIL || "",
-  // Handle newlines in private key which can be escaped in some env var UIs
-  private_key: (import.meta.env.VITE_SERVICE_ACCOUNT_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
+const CHECK_URL = '/.netlify/functions/sheets-check';
+const FETCH_URL = '/.netlify/functions/sheets-fetch';
+const APPEND_URL = '/.netlify/functions/sheets-append';
+
+const readErrorMessage = async (response: Response, fallback: string) => {
+  try {
+    const data = await response.json();
+    return data?.error || fallback;
+  } catch {
+    try {
+      const text = await response.text();
+      return text || fallback;
+    } catch {
+      return fallback;
+    }
+  }
 };
-
-let accessToken: string | null = null;
-let tokenExpiry: number = 0;
-
-async function getAccessToken(): Promise<string> {
-  if (!SERVICE_ACCOUNT.client_email || !SERVICE_ACCOUNT.private_key) {
-    throw new Error("Missing Service Account Credentials. Please set VITE_SERVICE_ACCOUNT_EMAIL and VITE_SERVICE_ACCOUNT_PRIVATE_KEY environment variables.");
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  
-  // Return cached token if still valid (with 5 min buffer)
-  if (accessToken && now < tokenExpiry - 300) {
-    return accessToken;
-  }
-
-  const alg = 'RS256';
-  const privateKey = await jose.importPKCS8(SERVICE_ACCOUNT.private_key, alg);
-
-  const jwt = await new jose.SignJWT({
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-  })
-    .setProtectedHeader({ alg })
-    .setIssuedAt()
-    .setIssuer(SERVICE_ACCOUNT.client_email)
-    .setAudience('https://oauth2.googleapis.com/token')
-    .setExpirationTime('1h')
-    .sign(privateKey);
-
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Failed to get access token: ${error.error_description || error.error}`);
-  }
-
-  const data = await response.json();
-  accessToken = data.access_token;
-  tokenExpiry = now + data.expires_in;
-  return accessToken!;
-}
 
 export const initGoogleServices = async (
   config: SheetConfig, 
   onInit: () => void
 ) => {
   try {
-    await getAccessToken();
+    const response = await fetch(CHECK_URL, { method: 'POST' });
+    if (!response.ok) {
+      const message = await readErrorMessage(response, 'Failed to initialize Google Services.');
+      throw new Error(message);
+    }
     onInit();
   } catch (error) {
     console.error("Error initializing Google Service Account:", error);
@@ -73,39 +37,19 @@ export const initGoogleServices = async (
 };
 
 export const fetchActivities = async (spreadsheetId: string): Promise<ActivityLog[]> => {
-  const token = await getAccessToken();
-  const range = 'Sheet1!A:C';
-  
   try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      }
-    );
+    const response = await fetch(FETCH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spreadsheetId }),
+    });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Fetch error: ${error.error?.message || response.statusText}`);
+      const message = await readErrorMessage(response, response.statusText);
+      throw new Error(message);
     }
 
-    const data = await response.json();
-    const rows = data.values;
-    
-    if (!rows || rows.length === 0) return [];
-
-    const startIndex = (rows[0][0] === 'Timestamp' || rows[0][0] === 'day') ? 1 : 0;
-
-    const logs: ActivityLog[] = rows.slice(startIndex).map((row: any[]) => ({
-      timestamp: row[0],
-      eventType: row[1] || 'Unknown',
-      value: row[2] || '',
-    })).filter((log: ActivityLog) => log.timestamp);
-
-    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return await response.json();
   } catch (err) {
     console.error("Error fetching activities:", err);
     throw err;
@@ -113,29 +57,16 @@ export const fetchActivities = async (spreadsheetId: string): Promise<ActivityLo
 };
 
 export const appendActivity = async (spreadsheetId: string, activity: ActivityLog): Promise<void> => {
-  const token = await getAccessToken();
-  const range = 'Sheet1!A:C';
-  
-  const body = {
-    values: [[activity.timestamp, activity.eventType, activity.value]],
-  };
-
   try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    const response = await fetch(APPEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spreadsheetId, activity }),
+    });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Append error: ${error.error?.message || response.statusText}`);
+      const message = await readErrorMessage(response, response.statusText);
+      throw new Error(message);
     }
   } catch (err) {
     console.error("Error appending activity:", err);
