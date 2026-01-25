@@ -1,7 +1,7 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
-const MODEL_NAME = 'gemini-3-flash-preview';
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
