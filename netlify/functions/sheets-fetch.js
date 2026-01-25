@@ -16,7 +16,7 @@ export const handler = async (event) => {
     }
 
     const token = await getAccessToken();
-    const range = 'Sheet1!A:C';
+    const range = 'Sheet1!A:D';
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
@@ -38,13 +38,16 @@ export const handler = async (event) => {
       return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify([]) };
     }
 
-    const startIndex = rows[0][0] === 'Timestamp' || rows[0][0] === 'day' ? 1 : 0;
+    const header = rows[0] || [];
+    const hasHeader = header[0]?.toLowerCase?.() === 'id' || header[0] === 'Timestamp' || header[0] === 'day';
+    const startIndex = hasHeader ? 1 : 0;
     const logs = rows
       .slice(startIndex)
       .map((row) => ({
-        timestamp: row[0],
-        eventType: row[1] || 'Unknown',
-        value: row[2] || '',
+        id: row[0],
+        timestamp: normalizeTimestamp(row[1]),
+        eventType: row[2] || 'Unknown',
+        value: row[3] || '',
       }))
       .filter((log) => log.timestamp);
 
@@ -54,4 +57,34 @@ export const handler = async (event) => {
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
   }
+};
+
+const normalizeTimestamp = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    return excelSerialToIso(value);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+      return excelSerialToIso(Number(trimmed));
+    }
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)
+      ? trimmed.replace(' ', 'T')
+      : trimmed;
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return null;
+};
+
+const excelSerialToIso = (serial) => {
+  if (!Number.isFinite(serial)) return null;
+  const excelEpoch = Date.UTC(1899, 11, 30);
+  const ms = excelEpoch + serial * 86400000;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
