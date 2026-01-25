@@ -65,20 +65,20 @@ export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, o
       />
 
       {/* Modal */}
-      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 pointer-events-auto transform transition-transform animate-in slide-in-from-bottom-4 mb-0 sm:mb-8 mx-0 sm:mx-4 flex flex-col gap-5 z-50">
+      <div className="w-full sm:max-w-lg bg-white dark:bg-slate-950 rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 pointer-events-auto transform transition-transform animate-in slide-in-from-bottom-4 mb-0 sm:mb-8 mx-0 sm:mx-4 flex flex-col gap-5 z-50 border border-transparent dark:border-slate-800">
         
         <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold text-slate-800">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
             {mode === 'edit' ? 'Update Log' : 'New Log'}
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <X className="w-6 h-6 text-slate-400" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+            <X className="w-6 h-6 text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
         {mode === 'edit' && existingSummary && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-700">Current entry:</span> {existingSummary}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">Current entry:</span> {existingSummary}
           </div>
         )}
 
@@ -97,12 +97,12 @@ export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, o
                 ? "Describe the update... e.g. 'change to 16:30' or 'make it 180ml'"
                 : "Type anything... e.g. '15:00 230ml' or '15:30 150 and 16:30 steroid cream'"
             }
-            className="w-full p-4 bg-slate-50 rounded-2xl border-0 ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none text-xl placeholder:text-slate-400"
+            className="w-full p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border-0 ring-1 ring-slate-200 dark:ring-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none resize-none text-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             rows={3}
             disabled={isProcessing}
           />
           {errorMessage && (
-            <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-start gap-2 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               <span className="font-semibold">Couldn’t parse that.</span>
               <span>{errorMessage}</span>
             </div>
@@ -110,14 +110,14 @@ export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, o
           
           {mode === 'add' && (
             <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Quick Add</p>
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">Quick Add</p>
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
                {SUGGESTIONS.map((s) => (
                  <button
                    key={s}
                    type="button"
                    onClick={() => addSuggestion(s)}
-                   className="flex-shrink-0 bg-slate-100 hover:bg-indigo-50 active:bg-indigo-100 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors border border-transparent hover:border-indigo-200"
+                   className="flex-shrink-0 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:bg-emerald-100 dark:active:bg-emerald-500/20 text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-300 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-900/60"
                  >
                    {s}
                  </button>
@@ -129,7 +129,7 @@ export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, o
           <button
             type="submit"
             disabled={!text.trim() || isProcessing}
-            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white px-6 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-slate-200"
+            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-black disabled:bg-slate-300 dark:bg-slate-100 dark:hover:bg-white dark:disabled:bg-slate-700 text-white dark:text-slate-900 px-6 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-slate-200 dark:shadow-slate-900/40"
           >
             {isProcessing ? (
               <>
