@@ -36,9 +36,12 @@ export const handler = async (event) => {
   }
 
   try {
-    const { text, knownTypes } = JSON.parse(event.body || '{}');
-    if (!text) {
-      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing text' }) };
+    const { instruction, existing, knownTypes } = JSON.parse(event.body || '{}');
+    if (!instruction) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing instruction' }) };
+    }
+    if (!existing?.timestamp || !existing?.event_type) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing existing activity' }) };
     }
 
     const apiKey = getGeminiApiKey();
@@ -50,30 +53,29 @@ export const handler = async (event) => {
     const prompt = `
       Current System Time: ${dateContext}
       Known Event Types: ${knownList.join(', ')}
-      
-      Task: Parse the User Input into one or more structured baby activity log entries.
-      
+
+      Existing Activity (do not lose details unless the instruction says to change them):
+      ${JSON.stringify(existing)}
+
+      Update Instruction: "${instruction}"
+
+      Task: Update the existing activity using the instruction, returning a single activity object.
+
       Rules:
-      1. Timestamp: 
-         - If time is provided in input (e.g., "15:00"), combine it with the Current System Date.
-         - If no time is provided, use the Current System Time exactly.
-         - Return as ISO 8601 string.
-      2. Event Type:
-         - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed").
-         - If it's a new type of activity, create a concise, lowercase label (e.g., "poo", "sleep", "bath").
-      3. Value:
-         - Extract details like amount (ml, oz), duration, or notes.
-         - If the input is just the event type (e.g., "poo"), leave value empty or describe strictly if details exist.
-      4. Output scope:
-         - Only output JSON for the rows to insert.
+      1. Only change fields implied by the instruction. Otherwise keep existing values.
+      2. Output scope:
+         - Only output JSON for the updated row.
          - Do not include any schema changes or spreadsheet instructions.
-      5. Multiple entries:
-         - If the input describes multiple activities, return multiple items in the activities array.
-         - Preserve the order the user provided.
-      6. Invalid input:
-         - If the input cannot be parsed into any activity, return an error message and an empty activities array.
-  
-      User Input: "${text}"
+      3. Timestamp:
+         - If the instruction includes a time (e.g., "16:30"), combine it with the Current System Date.
+         - If no time is provided, keep the existing timestamp.
+         - Return as ISO 8601 string.
+      4. Event Type:
+         - Try to reuse one of the "Known Event Types" if semantically similar.
+         - Otherwise keep or create a concise, lowercase label.
+      5. Value:
+         - Extract updated details like amount, duration, or notes.
+         - If the instruction is too vague to update, return an error message and no activity.
     `;
 
     const response = await ai.models.generateContent({
@@ -84,22 +86,18 @@ export const handler = async (event) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            activities: {
-              type: Type.ARRAY,
-              description: 'Parsed activity entries',
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
-                  event_type: { type: Type.STRING, description: 'Category of the event' },
-                  value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
-                },
-                required: ['timestamp', 'event_type', 'value'],
+            activity: {
+              type: Type.OBJECT,
+              properties: {
+                timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
+                event_type: { type: Type.STRING, description: 'Category of the event' },
+                value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
               },
+              required: ['timestamp', 'event_type', 'value'],
             },
             error: { type: Type.STRING, description: 'Error message when input is invalid' },
           },
-          required: ['activities'],
+          required: [],
         },
       },
     });
@@ -125,18 +123,15 @@ export const handler = async (event) => {
       };
     }
 
-    const activities = Array.isArray(parsed.activities) ? parsed.activities : [];
-    const errorMessage = typeof parsed.error === 'string' ? parsed.error : null;
-
-    if (!activities.length) {
+    if (!parsed?.activity) {
       return {
         statusCode: 422,
         headers: jsonHeaders,
-        body: JSON.stringify({ error: errorMessage || 'Unable to parse activity input.', activities: [] }),
+        body: JSON.stringify({ error: parsed?.error || 'Unable to parse update instruction.' }),
       };
     }
 
-    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ activities }) };
+    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ activity: parsed.activity }) };
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
   }

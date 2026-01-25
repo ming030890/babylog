@@ -5,6 +5,8 @@ import {
   RefreshCw,
   AlertCircle,
   ExternalLink,
+  Trash2,
+  Pencil,
   Moon,
   Sun,
   Utensils,
@@ -16,9 +18,9 @@ import {
   Clock,
   Milk
 } from 'lucide-react';
-import { AppState, ActivityLog, SheetConfig } from './types';
-import { initGoogleServices, fetchActivities, appendActivity } from './services/sheetsService';
-import { parseActivityText } from './services/geminiService';
+import { AppState, ActivityLog, SheetConfig, ParsedActivity } from './types';
+import { initGoogleServices, fetchActivities, appendActivity, deleteActivity, updateActivity } from './services/sheetsService';
+import { parseActivityText, parseActivityUpdate } from './services/geminiService';
 import { ActivityInput } from './components/ActivityInput';
 
 const SHEET_ID = import.meta.env.VITE_SHEET_ID?.trim();
@@ -77,6 +79,9 @@ const App: React.FC = () => {
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
+  const [deletingRow, setDeletingRow] = useState<string | null>(null);
+  const [editingLog, setEditingLog] = useState<ActivityLog | null>(null);
   
   // Lazy Loading State
   const [visibleDaysCount, setVisibleDaysCount] = useState(DAYS_PER_PAGE);
@@ -119,32 +124,91 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogSubmit = async (text: string) => {
-    if (!config) return;
+  const handleLogSubmit = async (text: string): Promise<boolean> => {
+    if (!config) return false;
     setIsProcessing(true);
+    setInputError(null);
     try {
       const knownTypes = Array.from(new Set(logs.map(l => l.eventType))) as string[];
       const parsed = await parseActivityText(text, knownTypes);
-      
-      const newLog: ActivityLog = {
-        timestamp: parsed.timestamp,
-        eventType: parsed.event_type,
-        value: parsed.value,
-        originalInput: text
-      };
+      const nextLogs: ActivityLog[] = [];
 
-      await appendActivity(config.spreadsheetId, newLog);
+      for (const entry of parsed.activities) {
+        const newLog: ActivityLog = {
+          timestamp: entry.timestamp,
+          eventType: entry.event_type,
+          value: entry.value,
+          originalInput: text
+        };
+        const id = await appendActivity(config.spreadsheetId, newLog);
+        if (typeof id === 'string') {
+          newLog.id = id;
+        }
+        nextLogs.push(newLog);
+      }
 
       setLogs(prev => {
-        const updated = [newLog, ...prev];
+        const updated = [...nextLogs, ...prev];
         return updated.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       });
 
+      return true;
     } catch (err: any) {
       console.error(err);
-      alert(`Error: ${err.message || "Failed to log activity"}`);
+      setInputError(err.message || "Failed to log activity.");
+      return false;
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleLogUpdate = async (instruction: string): Promise<boolean> => {
+    if (!config || !editingLog || !editingLog.id) return false;
+    setIsProcessing(true);
+    setInputError(null);
+    try {
+      const knownTypes = Array.from(new Set(logs.map(l => l.eventType))) as string[];
+      const existing: ParsedActivity = {
+        timestamp: editingLog.timestamp,
+        event_type: editingLog.eventType,
+        value: editingLog.value
+      };
+      const updated = await parseActivityUpdate(instruction, existing, knownTypes);
+      const updatedLog: ActivityLog = {
+        timestamp: updated.timestamp,
+        eventType: updated.event_type,
+        value: updated.value,
+        originalInput: editingLog.originalInput,
+        id: editingLog.id
+      };
+      await updateActivity(config.spreadsheetId, editingLog.id, updatedLog);
+      const updatedLogs = await fetchActivities(config.spreadsheetId);
+      setLogs(updatedLogs);
+      setEditingLog(null);
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      setInputError(err.message || "Failed to update activity.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDelete = async (log: ActivityLog) => {
+    if (!config || !log.id) return;
+    const confirmed = window.confirm(`Delete "${log.eventType}" at ${formatTime(log.timestamp)}?`);
+    if (!confirmed) return;
+    setDeletingRow(log.id);
+    try {
+      await deleteActivity(config.spreadsheetId, log.id);
+      const updatedLogs = await fetchActivities(config.spreadsheetId);
+      setLogs(updatedLogs);
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error: ${err.message || "Failed to delete activity"}`);
+    } finally {
+      setDeletingRow(null);
     }
   };
 
@@ -293,6 +357,31 @@ const App: React.FC = () => {
                       <span className="font-bold text-slate-800 capitalize text-lg leading-none">
                         {log.eventType}
                       </span>
+                      <div className="ml-auto flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingLog(log);
+                            setIsInputOpen(true);
+                          }}
+                          disabled={!log.id}
+                          className="p-1.5 rounded-full text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Edit entry"
+                          aria-label="Edit entry"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(log)}
+                          disabled={!log.id || deletingRow === log.id}
+                          className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Delete entry"
+                          aria-label="Delete entry"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     
                     {log.value && (
@@ -344,7 +433,10 @@ const App: React.FC = () => {
 
       {appState === AppState.READY && (
         <button
-          onClick={() => setIsInputOpen(true)}
+          onClick={() => {
+            setEditingLog(null);
+            setIsInputOpen(true);
+          }}
           className="fixed bottom-8 right-6 w-14 h-14 bg-slate-900 text-white rounded-2xl shadow-xl shadow-slate-400/40 flex items-center justify-center transition-all hover:scale-105 active:scale-90 active:bg-black z-30"
           aria-label="Add Log"
         >
@@ -354,9 +446,21 @@ const App: React.FC = () => {
 
       <ActivityInput 
         isOpen={isInputOpen} 
-        onClose={() => setIsInputOpen(false)} 
-        onSubmit={handleLogSubmit}
+        onClose={() => {
+          setIsInputOpen(false);
+          setInputError(null);
+          setEditingLog(null);
+        }} 
+        onSubmit={editingLog ? handleLogUpdate : handleLogSubmit}
         isProcessing={isProcessing}
+        errorMessage={inputError}
+        onClearError={() => setInputError(null)}
+        mode={editingLog ? 'edit' : 'add'}
+        existingSummary={
+          editingLog
+            ? `${formatTime(editingLog.timestamp)} · ${editingLog.eventType}${editingLog.value ? ` · ${editingLog.value}` : ''}`
+            : undefined
+        }
       />
     </div>
   );

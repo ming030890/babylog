@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { getAccessToken } from './_shared/googleAuth.js';
 
 const jsonHeaders = {
@@ -19,13 +20,14 @@ export const handler = async (event) => {
     }
 
     const token = await getAccessToken();
-    const range = 'Sheet1!A:C';
+    const range = 'Sheet1!A:D';
+    const id = activity.id || randomUUID();
     const body = {
-      values: [[activity.timestamp, activity.eventType, activity.value || '']],
+      values: [[id, activity.timestamp, activity.eventType, activity.value || '']],
     };
 
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&includeValuesInResponse=true`,
       {
         method: 'POST',
         headers: {
@@ -41,7 +43,7 @@ export const handler = async (event) => {
       throw new Error(`Append error: ${error.error?.message || response.statusText}`);
     }
 
-    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ ok: true }) };
+    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ ok: true, id }) };
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
   }

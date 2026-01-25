@@ -16,7 +16,7 @@ export const handler = async (event) => {
     }
 
     const token = await getAccessToken();
-    const range = 'Sheet1!A:C';
+    const range = 'Sheet1!A:D';
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
@@ -38,13 +38,16 @@ export const handler = async (event) => {
       return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify([]) };
     }
 
-    const startIndex = rows[0][0] === 'Timestamp' || rows[0][0] === 'day' ? 1 : 0;
+    const header = rows[0] || [];
+    const hasHeader = header[0]?.toLowerCase?.() === 'id' || header[0] === 'Timestamp' || header[0] === 'day';
+    const startIndex = hasHeader ? 1 : 0;
     const logs = rows
       .slice(startIndex)
       .map((row) => ({
-        timestamp: row[0],
-        eventType: row[1] || 'Unknown',
-        value: row[2] || '',
+        id: row[0],
+        timestamp: row[1],
+        eventType: row[2] || 'Unknown',
+        value: row[3] || '',
       }))
       .filter((log) => log.timestamp);
 
