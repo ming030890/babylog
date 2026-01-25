@@ -71,7 +71,6 @@ export const handler = async (event) => {
          - Return as ISO 8601 string.
       4. Event Type:
          - Try to reuse one of the "Known Event Types" if semantically similar.
-         - Do not change the casing of event types provided by the user or known types.
          - Otherwise keep or create a concise label using the user's casing.
          - The event_type is displayed to the user, so keep it human-friendly.
       5. Value:
