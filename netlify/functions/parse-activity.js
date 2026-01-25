@@ -7,6 +7,29 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 };
 
+const extractJson = (value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch?.[1]) {
+    return fenceMatch[1].trim();
+  }
+
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (objectMatch?.[0]) {
+    return objectMatch[0];
+  }
+
+  return trimmed;
+};
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: jsonHeaders, body: JSON.stringify({ error: 'Method Not Allowed' }) };
@@ -67,7 +90,22 @@ export const handler = async (event) => {
       return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Empty response from Gemini' }) };
     }
 
-    const parsed = JSON.parse(resultText);
+    const rawJson = extractJson(resultText);
+    if (!rawJson) {
+      return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Gemini returned no JSON payload' }) };
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch (parseError) {
+      return {
+        statusCode: 502,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: 'Failed to parse JSON from Gemini', details: parseError.message }),
+      };
+    }
+
     return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify(parsed) };
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
