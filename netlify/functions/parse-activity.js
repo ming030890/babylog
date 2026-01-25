@@ -59,7 +59,6 @@ export const handler = async (event) => {
          - Return as ISO 8601 string.
       2. Event Type:
          - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed_ml").
-         - Do not change the casing of event types provided by the user or known types.
          - If it's a new type of activity, create a concise label using the user's casing.
          - The event_type is displayed to the user, so keep it human-friendly.
       3. Value:
