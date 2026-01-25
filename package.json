@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.38.0",
     "react": "^19.2.3",
     "lucide-react": "^0.563.0",
     "jose": "^5.9.6"

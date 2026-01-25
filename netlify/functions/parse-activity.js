@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
@@ -42,7 +41,6 @@ export const handler = async (event) => {
     }
 
     const apiKey = getGeminiApiKey();
-    const ai = new GoogleGenAI({ apiKey });
     const now = new Date();
     const dateContext = now.toISOString();
     const knownList = Array.isArray(knownTypes) ? knownTypes : [];
@@ -68,24 +66,27 @@ export const handler = async (event) => {
       User Input: "${text}"
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
-            event_type: { type: Type.STRING, description: 'Category of the event' },
-            value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
           },
-          required: ['timestamp', 'event_type', 'value'],
-        },
-      },
-    });
+        }),
+      }
+    );
 
-    const resultText = response.text;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || response.statusText);
+    }
+
+    const data = await response.json();
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!resultText) {
       return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Empty response from Gemini' }) };
     }
