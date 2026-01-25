@@ -2,12 +2,12 @@ import { SheetConfig, ActivityLog } from '../types';
 import * as jose from 'jose';
 
 // In Netlify, set these environment variables in Site Settings > Build & Deploy > Environment
-// SERVICE_ACCOUNT_EMAIL
-// SERVICE_ACCOUNT_PRIVATE_KEY
+// VITE_SERVICE_ACCOUNT_EMAIL
+// VITE_SERVICE_ACCOUNT_PRIVATE_KEY
 const SERVICE_ACCOUNT = {
-  client_email: process.env.SERVICE_ACCOUNT_EMAIL || "",
+  client_email: import.meta.env.VITE_SERVICE_ACCOUNT_EMAIL || "",
   // Handle newlines in private key which can be escaped in some env var UIs
-  private_key: (process.env.SERVICE_ACCOUNT_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
+  private_key: (import.meta.env.VITE_SERVICE_ACCOUNT_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
 };
 
 let accessToken: string | null = null;
@@ -15,7 +15,7 @@ let tokenExpiry: number = 0;
 
 async function getAccessToken(): Promise<string> {
   if (!SERVICE_ACCOUNT.client_email || !SERVICE_ACCOUNT.private_key) {
-    throw new Error("Missing Service Account Credentials. Please set SERVICE_ACCOUNT_EMAIL and SERVICE_ACCOUNT_PRIVATE_KEY environment variables.");
+    throw new Error("Missing Service Account Credentials. Please set VITE_SERVICE_ACCOUNT_EMAIL and VITE_SERVICE_ACCOUNT_PRIVATE_KEY environment variables.");
   }
 
   const now = Math.floor(Date.now() / 1000);
