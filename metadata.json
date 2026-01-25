@@ -1,0 +1,5 @@
+{
+  "name": "BabyLog",
+  "description": "Smart baby activity tracker powered by Gemini and Google Sheets. Log feeds, changes, and meds with natural language.",
+  "requestFramePermissions": []
+}
