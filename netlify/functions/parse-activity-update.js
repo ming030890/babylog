@@ -1,7 +1,7 @@
-import { GoogleGenAI, Type } from '@google/genai/node';
+import { GoogleGenAI } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+const MODEL_NAME = process.env.GEMINI_STRUCTURED_MODEL || process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -84,19 +84,19 @@ export const handler = async (event) => {
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
+        responseJsonSchema: {
+          type: 'object',
           properties: {
             activity: {
-              type: Type.OBJECT,
+              type: 'object',
               properties: {
-                timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
-                event_type: { type: Type.STRING, description: 'Category of the event' },
-                value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
+                timestamp: { type: 'string', description: 'ISO 8601 timestamp' },
+                event_type: { type: 'string', description: 'Category of the event' },
+                value: { type: 'string', description: 'Quantity, duration, or notes' },
               },
               required: ['timestamp', 'event_type', 'value'],
             },
-            error: { type: Type.STRING, description: 'Error message when input is invalid' },
+            error: { type: 'string', description: 'Error message when input is invalid' },
           },
           required: [],
         },
