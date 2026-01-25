@@ -28,6 +28,7 @@ const DAYS_PER_PAGE = 7;
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return 'Invalid date';
   const today = new Date();
   const isToday = date.toDateString() === today.toDateString();
   
@@ -41,7 +42,9 @@ const formatDate = (isoString: string) => {
 };
 
 const formatTime = (isoString: string) => {
-  return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(isoString));
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
 };
 
 // Helper to pick an icon based on event type text

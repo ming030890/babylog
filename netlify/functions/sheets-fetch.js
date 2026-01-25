@@ -45,7 +45,7 @@ export const handler = async (event) => {
       .slice(startIndex)
       .map((row) => ({
         id: row[0],
-        timestamp: row[1],
+        timestamp: normalizeTimestamp(row[1]),
         eventType: row[2] || 'Unknown',
         value: row[3] || '',
       }))
@@ -57,4 +57,34 @@ export const handler = async (event) => {
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
   }
+};
+
+const normalizeTimestamp = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    return excelSerialToIso(value);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+      return excelSerialToIso(Number(trimmed));
+    }
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)
+      ? trimmed.replace(' ', 'T')
+      : trimmed;
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return null;
+};
+
+const excelSerialToIso = (serial) => {
+  if (!Number.isFinite(serial)) return null;
+  const excelEpoch = Date.UTC(1899, 11, 30);
+  const ms = excelEpoch + serial * 86400000;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
