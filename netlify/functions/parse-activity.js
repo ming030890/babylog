@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
@@ -36,6 +35,7 @@ export const handler = async (event) => {
   }
 
   try {
+    const { GoogleGenAI, Type } = await import('@google/genai');
     const { text, knownTypes } = JSON.parse(event.body || '{}');
     if (!text) {
       return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing text' }) };
