@@ -1,7 +1,7 @@
-import { GoogleGenAI, Type } from '@google/genai/node';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -42,7 +42,6 @@ export const handler = async (event) => {
     }
 
     const apiKey = getGeminiApiKey();
-    const ai = new GoogleGenAI({ apiKey });
     const now = new Date();
     const dateContext = now.toISOString();
     const knownList = Array.isArray(knownTypes) ? knownTypes : [];
@@ -60,7 +59,9 @@ export const handler = async (event) => {
          - Return as ISO 8601 string.
       2. Event Type:
          - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed_ml").
-         - If it's a new type of activity, create a concise, lowercase label (e.g., "poo", "sleep", "bath").
+         - Do not change the casing of event types provided by the user or known types.
+         - If it's a new type of activity, create a concise label using the user's casing.
+         - The event_type is displayed to the user, so keep it human-friendly.
       3. Value:
          - Extract details like amount (ml, oz), duration, or notes.
          - If the event type is "feed_ml", store only the numeric amount without units (e.g., "160").
@@ -77,35 +78,55 @@ export const handler = async (event) => {
       User Input: "${text}"
     `;
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            activities: {
-              type: Type.ARRAY,
-              description: 'Parsed activity entries',
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  timestamp: { type: Type.STRING, description: 'ISO 8601 timestamp' },
-                  event_type: { type: Type.STRING, description: 'Category of the event' },
-                  value: { type: Type.STRING, description: 'Quantity, duration, or notes' },
-                },
-                required: ['timestamp', 'event_type', 'value'],
-              },
-            },
-            error: { type: Type.STRING, description: 'Error message when input is invalid' },
-          },
-          required: ['activities'],
-        },
+    const response = await fetch(GEMINI_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: {
+            type: 'object',
+            properties: {
+              activities: {
+                type: 'array',
+                description: 'Parsed activity entries',
+                items: {
+                  type: 'object',
+                  properties: {
+                    timestamp: { type: 'string', description: 'ISO 8601 timestamp' },
+                    event_type: { type: 'string', description: 'Category of the event' },
+                    value: { type: 'string', description: 'Quantity, duration, or notes' },
+                  },
+                  required: ['timestamp', 'event_type', 'value'],
+                },
+              },
+              error: { type: 'string', description: 'Error message when input is invalid' },
+            },
+            required: ['activities'],
+          },
+        },
+      }),
     });
 
-    const resultText = response.text;
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        statusCode: 502,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: 'Gemini request failed', details: errorText }),
+      };
+    }
+
+    const responseData = await response.json();
+    const resultText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!resultText) {
       return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Empty response from Gemini' }) };
     }
