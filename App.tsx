@@ -188,6 +188,7 @@ const App: React.FC = () => {
   const renderError = (message: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = message.split(urlRegex);
+    const isUrl = (value: string) => /https?:\/\/[^\s]+/.test(value);
 
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6">
@@ -195,7 +196,7 @@ const App: React.FC = () => {
         <h2 className="text-xl font-bold text-slate-800 mb-2">Connection Issue</h2>
         <div className="text-slate-600 mb-6 max-w-md break-words">
           {parts.map((part, i) => 
-            urlRegex.test(part) ? (
+            isUrl(part) ? (
               <a 
                 key={i} 
                 href={part} 

@@ -8,11 +8,12 @@ export const parseActivityText = async (
   text: string, 
   knownTypes: string[]
 ): Promise<ParsedActivity> => {
-  if (!process.env.API_KEY) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
     throw new Error("Gemini API Key is missing.");
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   const now = new Date();
   
   // Format current date context for the model
