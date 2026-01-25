@@ -357,7 +357,7 @@ const App: React.FC = () => {
                          <Clock className="w-3 h-3" />
                          {formatTime(log.timestamp)}
                       </span>
-                      <span className="font-bold text-slate-800 capitalize text-lg leading-none">
+                      <span className="font-bold text-slate-800 text-lg leading-none">
                         {log.eventType}
                       </span>
                       <div className="ml-auto flex items-center gap-1">
