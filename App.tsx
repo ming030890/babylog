@@ -85,7 +85,6 @@ const App: React.FC = () => {
   const [inputError, setInputError] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [editingLog, setEditingLog] = useState<ActivityLog | null>(null);
-  
   // Lazy Loading State
   const [visibleDaysCount, setVisibleDaysCount] = useState(DAYS_PER_PAGE);
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -424,6 +423,7 @@ const App: React.FC = () => {
             onClick={() => config && loadLogs(config.spreadsheetId)}
             className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95"
             title="Refresh"
+            aria-label="Refresh"
           >
             <RefreshCw className="w-5 h-5" />
           </button>
