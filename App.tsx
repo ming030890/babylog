@@ -85,21 +85,9 @@ const App: React.FC = () => {
   const [inputError, setInputError] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [editingLog, setEditingLog] = useState<ActivityLog | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const storedTheme = window.localStorage.getItem('theme');
-    if (storedTheme === 'dark' || storedTheme === 'light') return storedTheme;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-  
   // Lazy Loading State
   const [visibleDaysCount, setVisibleDaysCount] = useState(DAYS_PER_PAGE);
   const observerTarget = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    window.localStorage.setItem('theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     if (!SHEET_ID) {
@@ -430,27 +418,16 @@ const App: React.FC = () => {
             BabyLog
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        {(appState === AppState.READY || appState === AppState.ERROR) && (
+          <button 
+            onClick={() => config && loadLogs(config.spreadsheetId)}
+            className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95"
+            title="Refresh"
+            aria-label="Refresh"
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <RefreshCw className="w-5 h-5" />
           </button>
-          {(appState === AppState.READY || appState === AppState.ERROR) && (
-            <button 
-              onClick={() => config && loadLogs(config.spreadsheetId)}
-              className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95"
-              title="Refresh"
-              aria-label="Refresh"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-          )}
-        </div>
+        )}
       </header>
 
       <main className="max-w-md mx-auto px-4 py-6">
