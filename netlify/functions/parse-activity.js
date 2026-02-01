@@ -57,7 +57,7 @@ export const handler = async (event) => {
          - If the input is just the event type (e.g., "poo"), leave value empty or describe strictly if details exist.
       4. Output scope:
          - Only output JSON for the rows to insert.
-         - Do not include any schema changes or spreadsheet instructions.
+         - Do not include any schema changes or database instructions.
       5. Multiple entries:
          - If the input describes multiple activities, return multiple items in the activities array.
          - Preserve the order the user provided.

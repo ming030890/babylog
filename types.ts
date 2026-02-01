@@ -6,10 +6,6 @@ export interface ActivityLog {
   id?: string;
 }
 
-export interface SheetConfig {
-  spreadsheetId: string;
-}
-
 export enum AppState {
   SETUP = 'SETUP',
   LOADING = 'LOADING',
