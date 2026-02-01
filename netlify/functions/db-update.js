@@ -1,4 +1,5 @@
 import { getDb } from './_shared/db.js';
+import { parseJsonBody, validateActivityId, validateActivityPayload } from './_shared/activityValidation.js';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -10,12 +11,18 @@ export const handler = async (event) => {
   }
 
   try {
-    const { id, activity } = JSON.parse(event.body || '{}');
-    if (!id) {
-      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing activity id' }) };
+    const { data, error } = parseJsonBody(event.body);
+    if (error) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error }) };
     }
-    if (!activity?.timestamp || !activity?.eventType) {
-      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing activity data' }) };
+    const { id, activity } = data || {};
+    const idError = validateActivityId(id);
+    if (idError) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: idError }) };
+    }
+    const activityError = validateActivityPayload(activity);
+    if (activityError) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: activityError }) };
     }
 
     const sql = getDb();
