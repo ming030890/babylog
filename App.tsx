@@ -25,6 +25,7 @@ import { ActivityInput } from './components/ActivityInput';
 
 const SHEET_ID = import.meta.env.VITE_SHEET_ID?.trim();
 const DAYS_PER_PAGE = 7;
+const TOP_SUGGESTIONS_COUNT = 4;
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
@@ -88,6 +89,27 @@ const App: React.FC = () => {
   // Lazy Loading State
   const [visibleDaysCount, setVisibleDaysCount] = useState(DAYS_PER_PAGE);
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const topSuggestions = useMemo(() => {
+    if (!logs.length) return [];
+    const counts = new Map<string, { label: string; count: number }>();
+    logs.forEach((log) => {
+      const label = log.eventType.trim();
+      if (!label) return;
+      const key = label.toLowerCase();
+      const current = counts.get(key);
+      if (current) {
+        current.count += 1;
+      } else {
+        counts.set(key, { label, count: 1 });
+      }
+    });
+
+    return Array.from(counts.values())
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, TOP_SUGGESTIONS_COUNT)
+      .map((entry) => entry.label);
+  }, [logs]);
 
   useEffect(() => {
     if (!SHEET_ID) {
@@ -464,6 +486,7 @@ const App: React.FC = () => {
             ? `${formatTime(editingLog.timestamp)} · ${editingLog.eventType}${editingLog.value ? ` · ${editingLog.value}` : ''}`
             : undefined
         }
+        suggestions={topSuggestions}
       />
     </div>
   );

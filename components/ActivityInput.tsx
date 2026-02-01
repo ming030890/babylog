@@ -10,19 +10,20 @@ interface ActivityInputProps {
   onClearError: () => void;
   mode: 'add' | 'edit';
   existingSummary?: string;
+  suggestions?: string[];
 }
 
-const SUGGESTIONS = [
-  'steroid cream',
-  '180ml', 
-  '210ml', 
-  'poo', 
-  'bath',
-  'sleep',
-  'wake up'
-];
-
-export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, onSubmit, isProcessing, errorMessage, onClearError, mode, existingSummary }) => {
+export const ActivityInput: React.FC<ActivityInputProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  isProcessing,
+  errorMessage,
+  onClearError,
+  mode,
+  existingSummary,
+  suggestions = []
+}) => {
   const [text, setText] = useState('');
 
   useEffect(() => {
@@ -108,11 +109,11 @@ export const ActivityInput: React.FC<ActivityInputProps> = ({ isOpen, onClose, o
             </div>
           )}
           
-          {mode === 'add' && (
+          {mode === 'add' && suggestions.length > 0 && (
             <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider ml-1">Quick Add</p>
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
-               {SUGGESTIONS.map((s) => (
+               {suggestions.map((s) => (
                  <button
                    key={s}
                    type="button"
