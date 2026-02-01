@@ -7,27 +7,17 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 };
 
-const extractJson = (value) => {
-  if (typeof value !== 'string') {
-    return value;
+const parseStructuredJson = (responseData) => {
+  const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!responseText || typeof responseText !== 'string') {
+    return { error: 'Empty response from Gemini' };
   }
 
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
+  try {
+    return { data: JSON.parse(responseText) };
+  } catch (parseError) {
+    return { error: 'Failed to parse JSON from Gemini', details: parseError.message };
   }
-
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch?.[1]) {
-    return fenceMatch[1].trim();
-  }
-
-  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (objectMatch?.[0]) {
-    return objectMatch[0];
-  }
-
-  return trimmed;
 };
 
 export const handler = async (event) => {
@@ -125,24 +115,12 @@ export const handler = async (event) => {
     }
 
     const responseData = await response.json();
-    const resultText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!resultText) {
-      return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Empty response from Gemini' }) };
-    }
-
-    const rawJson = extractJson(resultText);
-    if (!rawJson) {
-      return { statusCode: 502, headers: jsonHeaders, body: JSON.stringify({ error: 'Gemini returned no JSON payload' }) };
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawJson);
-    } catch (parseError) {
+    const { data: parsed, error, details } = parseStructuredJson(responseData);
+    if (!parsed) {
       return {
         statusCode: 502,
         headers: jsonHeaders,
-        body: JSON.stringify({ error: 'Failed to parse JSON from Gemini', details: parseError.message }),
+        body: JSON.stringify({ error: error || 'Failed to parse JSON from Gemini', details }),
       };
     }
 
