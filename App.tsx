@@ -16,7 +16,8 @@ import {
   Droplets,
   Circle,
   Clock,
-  Milk
+  Milk,
+  X
 } from 'lucide-react';
 import { AppState, ActivityLog, ParsedActivity } from './types';
 import { initDatabaseServices, fetchActivities, appendActivity, deleteActivity, updateActivity } from './services/dbService';
@@ -25,6 +26,8 @@ import { ActivityInput } from './components/ActivityInput';
 
 const DAYS_PER_PAGE = 14;
 const TOP_SUGGESTIONS_COUNT = 4;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const POO_KEYWORDS = ['poo', 'diaper', 'nappy'];
 
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
@@ -89,6 +92,41 @@ const App: React.FC = () => {
   const [hasMorePages, setHasMorePages] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
+  const [isInsightDismissed, setIsInsightDismissed] = useState(false);
+
+  const shouldShowPooInsight = useMemo(() => {
+    if (!logs.length) return false;
+    const now = new Date();
+    let newestLogTime = new Date(logs[0].timestamp).getTime();
+    let oldestLogTime = new Date(logs[0].timestamp).getTime();
+    let latestPooTime: number | null = null;
+
+    logs.forEach((log) => {
+      const logTime = new Date(log.timestamp).getTime();
+      if (logTime > newestLogTime) newestLogTime = logTime;
+      if (logTime < oldestLogTime) oldestLogTime = logTime;
+      const eventType = log.eventType.toLowerCase();
+      if (POO_KEYWORDS.some(keyword => eventType.includes(keyword))) {
+        if (latestPooTime === null || logTime > latestPooTime) {
+          latestPooTime = logTime;
+        }
+      }
+    });
+
+    const referenceTime = Math.max(now.getTime(), newestLogTime);
+
+    if (latestPooTime !== null) {
+      return (referenceTime - latestPooTime) / MS_PER_DAY >= 4;
+    }
+
+    return (referenceTime - oldestLogTime) / MS_PER_DAY >= 4;
+  }, [logs]);
+
+  useEffect(() => {
+    if (!shouldShowPooInsight) {
+      setIsInsightDismissed(false);
+    }
+  }, [shouldShowPooInsight]);
 
   const topSuggestions = useMemo(() => {
     if (!logs.length) return [];
@@ -466,6 +504,22 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-md mx-auto px-4 py-6">
+        {shouldShowPooInsight && !isInsightDismissed && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+            <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-300" />
+            <div className="flex-1 text-sm leading-relaxed">
+              <span className="font-semibold">Insight:</span> No poo logged for 4+ days. Consider checking in if this is unexpected.
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsInsightDismissed(true)}
+              className="rounded-full p-1 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              aria-label="Dismiss insight"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {renderContent()}
       </main>
 
