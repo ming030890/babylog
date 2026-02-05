@@ -1,4 +1,5 @@
 import { getDb } from './_shared/db.js';
+import { parseJsonBody } from './_shared/activityValidation.js';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -17,10 +18,16 @@ export const handler = async (event) => {
 
   try {
     const sql = getDb();
-    const body = event.body ? JSON.parse(event.body) : {};
+    const { data: body, error } = parseJsonBody(event.body);
+    if (error) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error }) };
+    }
     const hasPaging = body?.before || body?.days;
-    const pageDays = Number.isFinite(body?.days) ? Number(body.days) : 14;
+    const pageDays = Number.isFinite(body?.days) && Number(body.days) > 0 ? Number(body.days) : 14;
     const endDate = body?.before ? new Date(body.before) : new Date();
+    if (body?.before && Number.isNaN(endDate.getTime())) {
+      return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Invalid before timestamp.' }) };
+    }
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - pageDays);
 
