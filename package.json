@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
     "@google/genai": "^1.38.0",
-    "react": "^19.2.3",
+    "@neondatabase/serverless": "^1.0.2",
+    "jose": "^5.9.6",
     "lucide-react": "^0.563.0",
-    "jose": "^5.9.6"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

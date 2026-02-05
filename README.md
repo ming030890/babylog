@@ -15,10 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1lkdpAoJ23UfuZ4f9RK-g5B
 
 1. Install dependencies:
    `npm install`
-2. Set `VITE_SHEET_ID` in [.env.local](.env.local)
-3. Set server-side environment variables for Netlify Functions:
+2. Set server-side environment variables for Netlify Functions:
    - `GEMINI_API_KEY`
-   - `SERVICE_ACCOUNT_EMAIL`
-   - `SERVICE_ACCOUNT_PRIVATE_KEY`
-4. Run the app locally with Netlify Functions:
+   - `NETLIFY_DATABASE_URL` (or `NETLIFY_DATABASE_URL_UNPOOLED`)
+3. Run the app locally with Netlify Functions:
    `npx netlify dev`

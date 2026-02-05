@@ -1,35 +1,30 @@
-import { SheetConfig, ActivityLog } from '../types';
+import { ActivityLog } from '../types';
 
-const CHECK_URL = '/.netlify/functions/sheets-check';
-const FETCH_URL = '/.netlify/functions/sheets-fetch';
-const APPEND_URL = '/.netlify/functions/sheets-append';
-const DELETE_URL = '/.netlify/functions/sheets-delete';
-const UPDATE_URL = '/.netlify/functions/sheets-update';
+const CHECK_URL = '/.netlify/functions/db-check';
+const FETCH_URL = '/.netlify/functions/db-fetch';
+const APPEND_URL = '/.netlify/functions/db-append';
+const DELETE_URL = '/.netlify/functions/db-delete';
+const UPDATE_URL = '/.netlify/functions/db-update';
 
-export const initGoogleServices = async (
-  config: SheetConfig, 
-  onInit: () => void
-) => {
+export const initDatabaseServices = async (onInit: () => void) => {
   try {
     const response = await fetch(CHECK_URL, { method: 'POST' });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to initialize Google Services.');
+      throw new Error(error.error || 'Failed to initialize database.');
     }
     onInit();
   } catch (error) {
-    console.error("Error initializing Google Service Account:", error);
-    // We re-throw here so the UI can show the specific error (e.g. missing env vars)
+    console.error('Error initializing database:', error);
     throw error;
   }
 };
 
-export const fetchActivities = async (spreadsheetId: string): Promise<ActivityLog[]> => {
+export const fetchActivities = async (): Promise<ActivityLog[]> => {
   try {
     const response = await fetch(FETCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spreadsheetId }),
     });
 
     if (!response.ok) {
@@ -39,17 +34,17 @@ export const fetchActivities = async (spreadsheetId: string): Promise<ActivityLo
 
     return await response.json();
   } catch (err) {
-    console.error("Error fetching activities:", err);
+    console.error('Error fetching activities:', err);
     throw err;
   }
 };
 
-export const appendActivity = async (spreadsheetId: string, activity: ActivityLog): Promise<string | null> => {
+export const appendActivity = async (activity: ActivityLog): Promise<string | null> => {
   try {
     const response = await fetch(APPEND_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spreadsheetId, activity }),
+      body: JSON.stringify({ activity }),
     });
 
     if (!response.ok) {
@@ -59,17 +54,17 @@ export const appendActivity = async (spreadsheetId: string, activity: ActivityLo
     const result = await response.json();
     return typeof result?.id === 'string' ? result.id : null;
   } catch (err) {
-    console.error("Error appending activity:", err);
+    console.error('Error appending activity:', err);
     throw err;
   }
 };
 
-export const deleteActivity = async (spreadsheetId: string, id: string): Promise<void> => {
+export const deleteActivity = async (id: string): Promise<void> => {
   try {
     const response = await fetch(DELETE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spreadsheetId, id }),
+      body: JSON.stringify({ id }),
     });
 
     if (!response.ok) {
@@ -77,17 +72,17 @@ export const deleteActivity = async (spreadsheetId: string, id: string): Promise
       throw new Error(error.error || response.statusText);
     }
   } catch (err) {
-    console.error("Error deleting activity:", err);
+    console.error('Error deleting activity:', err);
     throw err;
   }
 };
 
-export const updateActivity = async (spreadsheetId: string, id: string, activity: ActivityLog): Promise<void> => {
+export const updateActivity = async (id: string, activity: ActivityLog): Promise<void> => {
   try {
     const response = await fetch(UPDATE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spreadsheetId, id, activity }),
+      body: JSON.stringify({ id, activity }),
     });
 
     if (!response.ok) {
@@ -95,7 +90,7 @@ export const updateActivity = async (spreadsheetId: string, id: string, activity
       throw new Error(error.error || response.statusText);
     }
   } catch (err) {
-    console.error("Error updating activity:", err);
+    console.error('Error updating activity:', err);
     throw err;
   }
 };

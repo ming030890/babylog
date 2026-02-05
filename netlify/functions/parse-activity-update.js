@@ -54,7 +54,7 @@ export const handler = async (event) => {
       1. Only change fields implied by the instruction. Otherwise keep existing values.
       2. Output scope:
          - Only output JSON for the updated row.
-         - Do not include any schema changes or spreadsheet instructions.
+         - Do not include any schema changes or database instructions.
       3. Timestamp:
          - If the instruction includes a time (e.g., "16:30"), combine it with the Current System Date.
          - If no time is provided, keep the existing timestamp.

@@ -18,12 +18,11 @@ import {
   Clock,
   Milk
 } from 'lucide-react';
-import { AppState, ActivityLog, SheetConfig, ParsedActivity } from './types';
-import { initGoogleServices, fetchActivities, appendActivity, deleteActivity, updateActivity } from './services/sheetsService';
+import { AppState, ActivityLog, ParsedActivity } from './types';
+import { initDatabaseServices, fetchActivities, appendActivity, deleteActivity, updateActivity } from './services/dbService';
 import { parseActivityText, parseActivityUpdate } from './services/geminiService';
 import { ActivityInput } from './components/ActivityInput';
 
-const SHEET_ID = import.meta.env.VITE_SHEET_ID?.trim();
 const DAYS_PER_PAGE = 7;
 const TOP_SUGGESTIONS_COUNT = 4;
 
@@ -79,7 +78,6 @@ const calculateDailyMilk = (items: ActivityLog[]) => {
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.SETUP);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [config, setConfig] = useState<SheetConfig | null>(null);
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,44 +110,35 @@ const App: React.FC = () => {
   }, [logs]);
 
   useEffect(() => {
-    if (!SHEET_ID) {
-      setAppState(AppState.ERROR);
-      setErrorMsg('Missing VITE_SHEET_ID. Add it to your .env.local file and restart the app.');
-      return;
-    }
-
-    const initialConfig: SheetConfig = { spreadsheetId: SHEET_ID };
-    setConfig(initialConfig);
     setAppState(AppState.LOADING);
-    initializeServices(initialConfig);
+    initializeServices();
   }, []);
 
-  const initializeServices = async (cfg: SheetConfig) => {
+  const initializeServices = async () => {
     try {
-      await initGoogleServices(cfg, () => {
-        loadLogs(cfg.spreadsheetId);
+      await initDatabaseServices(() => {
+        loadLogs();
       });
     } catch (err: any) {
       setAppState(AppState.ERROR);
-      setErrorMsg(err.message || "Failed to initialize Google Services.");
+      setErrorMsg(err.message || 'Failed to initialize database.');
     }
   };
 
-  const loadLogs = async (spreadsheetId: string) => {
+  const loadLogs = async () => {
     setAppState(AppState.LOADING);
     try {
-      const fetchedLogs = await fetchActivities(spreadsheetId);
+      const fetchedLogs = await fetchActivities();
       setLogs(fetchedLogs);
       setAppState(AppState.READY);
       setErrorMsg(null);
     } catch (err: any) {
       setAppState(AppState.ERROR);
-      setErrorMsg(err.message || "Failed to load logs. Ensure the Sheet is shared with the service account.");
+      setErrorMsg(err.message || 'Failed to load logs. Ensure the database is reachable.');
     }
   };
 
   const handleLogSubmit = async (text: string): Promise<boolean> => {
-    if (!config) return false;
     setIsProcessing(true);
     setInputError(null);
     try {
@@ -164,7 +153,7 @@ const App: React.FC = () => {
           value: entry.value,
           originalInput: text
         };
-        const id = await appendActivity(config.spreadsheetId, newLog);
+        const id = await appendActivity(newLog);
         if (typeof id === 'string') {
           newLog.id = id;
         }
@@ -187,7 +176,7 @@ const App: React.FC = () => {
   };
 
   const handleLogUpdate = async (instruction: string): Promise<boolean> => {
-    if (!config || !editingLog || !editingLog.id) return false;
+    if (!editingLog || !editingLog.id) return false;
     setIsProcessing(true);
     setInputError(null);
     try {
@@ -205,8 +194,8 @@ const App: React.FC = () => {
         originalInput: editingLog.originalInput,
         id: editingLog.id
       };
-      await updateActivity(config.spreadsheetId, editingLog.id, updatedLog);
-      const updatedLogs = await fetchActivities(config.spreadsheetId);
+      await updateActivity(editingLog.id, updatedLog);
+      const updatedLogs = await fetchActivities();
       setLogs(updatedLogs);
       setEditingLog(null);
       return true;
@@ -220,13 +209,13 @@ const App: React.FC = () => {
   };
 
   const handleDelete = async (log: ActivityLog) => {
-    if (!config || !log.id) return;
+    if (!log.id) return;
     const confirmed = window.confirm(`Delete "${log.eventType}" at ${formatTime(log.timestamp)}?`);
     if (!confirmed) return;
     setDeletingRow(log.id);
     try {
-      await deleteActivity(config.spreadsheetId, log.id);
-      const updatedLogs = await fetchActivities(config.spreadsheetId);
+      await deleteActivity(log.id);
+      const updatedLogs = await fetchActivities();
       setLogs(updatedLogs);
     } catch (err: any) {
       console.error(err);
@@ -301,7 +290,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button 
-            onClick={() => config && loadLogs(config.spreadsheetId)}
+            onClick={() => loadLogs()}
             className="w-full px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200/60 dark:shadow-emerald-900/30"
           >
             Try Again
@@ -442,7 +431,7 @@ const App: React.FC = () => {
         </div>
         {(appState === AppState.READY || appState === AppState.ERROR) && (
           <button 
-            onClick={() => config && loadLogs(config.spreadsheetId)}
+            onClick={() => loadLogs()}
             className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95"
             title="Refresh"
             aria-label="Refresh"

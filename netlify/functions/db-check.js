@@ -1,4 +1,4 @@
-import { getAccessToken } from './_shared/googleAuth.js';
+import { getDb } from './_shared/db.js';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -10,7 +10,8 @@ export const handler = async (event) => {
   }
 
   try {
-    await getAccessToken();
+    const sql = getDb();
+    await sql`SELECT 1`;
     return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
