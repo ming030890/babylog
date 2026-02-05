@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Plus,
   Baby,
@@ -23,7 +23,7 @@ import { initDatabaseServices, fetchActivities, appendActivity, deleteActivity, 
 import { parseActivityText, parseActivityUpdate } from './services/geminiService';
 import { ActivityInput } from './components/ActivityInput';
 
-const DAYS_PER_PAGE = 7;
+const DAYS_PER_PAGE = 14;
 const TOP_SUGGESTIONS_COUNT = 4;
 
 const formatDate = (isoString: string) => {
@@ -85,7 +85,9 @@ const App: React.FC = () => {
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [editingLog, setEditingLog] = useState<ActivityLog | null>(null);
   // Lazy Loading State
-  const [visibleDaysCount, setVisibleDaysCount] = useState(DAYS_PER_PAGE);
+  const [pageCursor, setPageCursor] = useState<string | null>(null);
+  const [hasMorePages, setHasMorePages] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const topSuggestions = useMemo(() => {
@@ -128,8 +130,10 @@ const App: React.FC = () => {
   const loadLogs = async () => {
     setAppState(AppState.LOADING);
     try {
-      const fetchedLogs = await fetchActivities();
+      const { logs: fetchedLogs, hasMore, nextCursor } = await fetchActivities({ before: null, days: DAYS_PER_PAGE });
       setLogs(fetchedLogs);
+      setHasMorePages(hasMore);
+      setPageCursor(nextCursor);
       setAppState(AppState.READY);
       setErrorMsg(null);
     } catch (err: any) {
@@ -137,6 +141,27 @@ const App: React.FC = () => {
       setErrorMsg(err.message || 'Failed to load logs. Ensure the database is reachable.');
     }
   };
+
+  const loadMoreLogs = useCallback(async () => {
+    if (!hasMorePages || isFetchingMore || appState !== AppState.READY) return;
+    setIsFetchingMore(true);
+    try {
+      const { logs: fetchedLogs, hasMore, nextCursor } = await fetchActivities({
+        before: pageCursor,
+        days: DAYS_PER_PAGE
+      });
+      setLogs(prev => {
+        const merged = [...prev, ...fetchedLogs];
+        return merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      });
+      setHasMorePages(hasMore);
+      setPageCursor(nextCursor);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to load more logs.');
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [appState, hasMorePages, isFetchingMore, pageCursor]);
 
   const handleLogSubmit = async (text: string): Promise<boolean> => {
     setIsProcessing(true);
@@ -195,8 +220,10 @@ const App: React.FC = () => {
         id: editingLog.id
       };
       await updateActivity(editingLog.id, updatedLog);
-      const updatedLogs = await fetchActivities();
-      setLogs(updatedLogs);
+      setLogs(prev => {
+        const updated = prev.map(log => (log.id === updatedLog.id ? updatedLog : log));
+        return updated.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      });
       setEditingLog(null);
       return true;
     } catch (err: any) {
@@ -215,8 +242,7 @@ const App: React.FC = () => {
     setDeletingRow(log.id);
     try {
       await deleteActivity(log.id);
-      const updatedLogs = await fetchActivities();
-      setLogs(updatedLogs);
+      setLogs(prev => prev.filter(item => item.id !== log.id));
     } catch (err: any) {
       console.error(err);
       alert(`Error: ${err.message || "Failed to delete activity"}`);
@@ -244,8 +270,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && appState === AppState.READY) {
-          setVisibleDaysCount(prev => Math.min(prev + DAYS_PER_PAGE, groupedLogs.length));
+        if (entries[0].isIntersecting) {
+          loadMoreLogs();
         }
       },
       { threshold: 0.1 }
@@ -260,7 +286,7 @@ const App: React.FC = () => {
         observer.unobserve(observerTarget.current);
       }
     };
-  }, [groupedLogs.length, appState]);
+  }, [loadMoreLogs]);
 
   const renderError = (message: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -334,11 +360,9 @@ const App: React.FC = () => {
       );
     }
 
-    const visibleGroups = groupedLogs.slice(0, visibleDaysCount);
-
     return (
       <div className="pb-28">
-        {visibleGroups.map((group) => (
+        {groupedLogs.map((group) => (
           <div key={group.dateLabel} className="mb-8">
             <div className="sticky top-[73px] z-10 bg-slate-50/95 dark:bg-slate-900/80 backdrop-blur-sm py-2 border-b border-slate-100 dark:border-slate-800 mb-4 flex justify-between items-center pr-2">
               <h3 className="px-1 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
@@ -409,10 +433,10 @@ const App: React.FC = () => {
           </div>
         ))}
         {/* Intersection Observer Target for Infinite Scroll */}
-        {visibleDaysCount < groupedLogs.length && (
-           <div ref={observerTarget} className="h-10 flex items-center justify-center w-full">
-              <RefreshCw className="w-6 h-6 text-slate-300 dark:text-slate-600 animate-spin" />
-           </div>
+        {hasMorePages && (
+          <div ref={observerTarget} className="h-10 flex items-center justify-center w-full">
+            <RefreshCw className="w-6 h-6 text-slate-300 dark:text-slate-600 animate-spin" />
+          </div>
         )}
       </div>
     );

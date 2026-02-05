@@ -23,3 +23,9 @@ export interface ParsedActivityResult {
   activities: ParsedActivity[];
   error?: string;
 }
+
+export interface FetchActivitiesResponse {
+  logs: ActivityLog[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
