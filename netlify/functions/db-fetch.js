@@ -17,11 +17,25 @@ export const handler = async (event) => {
 
   try {
     const sql = getDb();
-    const rows = await sql`
-      SELECT id, "timestamp", event_type, value, original_input
-      FROM activity_logs
-      ORDER BY "timestamp" DESC
-    `;
+    const body = event.body ? JSON.parse(event.body) : {};
+    const hasPaging = body?.before || body?.days;
+    const pageDays = Number.isFinite(body?.days) ? Number(body.days) : 14;
+    const endDate = body?.before ? new Date(body.before) : new Date();
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - pageDays);
+
+    const rows = hasPaging
+      ? await sql`
+          SELECT id, "timestamp", event_type, value, original_input
+          FROM activity_logs
+          WHERE "timestamp" < ${endDate} AND "timestamp" >= ${startDate}
+          ORDER BY "timestamp" DESC
+        `
+      : await sql`
+          SELECT id, "timestamp", event_type, value, original_input
+          FROM activity_logs
+          ORDER BY "timestamp" DESC
+        `;
 
     const logs = rows
       .map((row) => ({
@@ -33,7 +47,28 @@ export const handler = async (event) => {
       }))
       .filter((log) => log.timestamp);
 
-    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify(logs) };
+    if (!hasPaging) {
+      return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ logs, hasMore: false, nextCursor: null }) };
+    }
+
+    const olderRows = await sql`
+      SELECT id
+      FROM activity_logs
+      WHERE "timestamp" < ${startDate}
+      LIMIT 1
+    `;
+
+    const hasMore = olderRows.length > 0;
+
+    return {
+      statusCode: 200,
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        logs,
+        hasMore,
+        nextCursor: toIsoString(startDate)
+      })
+    };
   } catch (error) {
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ error: error.message }) };
   }

@@ -1,4 +1,4 @@
-import { ActivityLog } from '../types';
+import { ActivityLog, FetchActivitiesResponse } from '../types';
 
 const CHECK_URL = '/.netlify/functions/db-check';
 const FETCH_URL = '/.netlify/functions/db-fetch';
@@ -20,11 +20,20 @@ export const initDatabaseServices = async (onInit: () => void) => {
   }
 };
 
-export const fetchActivities = async (): Promise<ActivityLog[]> => {
+type FetchActivitiesOptions = {
+  before?: string | null;
+  days?: number | null;
+};
+
+export const fetchActivities = async (options: FetchActivitiesOptions = {}): Promise<FetchActivitiesResponse> => {
   try {
     const response = await fetch(FETCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        before: options.before ?? null,
+        days: options.days ?? null
+      })
     });
 
     if (!response.ok) {
@@ -32,7 +41,15 @@ export const fetchActivities = async (): Promise<ActivityLog[]> => {
       throw new Error(error.error || response.statusText);
     }
 
-    return await response.json();
+    const data = await response.json();
+    if (Array.isArray(data)) {
+      return { logs: data, hasMore: false, nextCursor: null };
+    }
+    return {
+      logs: Array.isArray(data?.logs) ? data.logs : [],
+      hasMore: Boolean(data?.hasMore),
+      nextCursor: typeof data?.nextCursor === 'string' ? data.nextCursor : null
+    };
   } catch (err) {
     console.error('Error fetching activities:', err);
     throw err;
