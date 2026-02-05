@@ -26,6 +26,7 @@ export const handler = async (event) => {
   }
 
   try {
+    const { GoogleGenAI, Type } = await import('@google/genai');
     const { text, knownTypes } = JSON.parse(event.body || '{}');
     if (!text) {
       return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing text' }) };
