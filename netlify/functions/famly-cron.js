@@ -24,7 +24,7 @@ const jsonHeaders = {
 };
 
 export const config = {
-  schedule: '0 18 * * 1-5',
+  schedule: '30 17,18 * * 1-5',
 };
 
 const buildBaseHeaders = () => ({
@@ -143,6 +143,18 @@ const fetchCalendar = async (accessToken, day, toDay, childId) => {
 const isoDateInTimeZone = (timeZone, date = new Date()) =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
 
+const isLocalTime = (timeZone, expectedHour, expectedMinute = 0, date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value);
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value);
+  return hour === expectedHour && minute === expectedMinute;
+};
+
 const unitAmountToMl = (unitAmount) => {
   if (unitAmount == null) return null;
   const value = Number(unitAmount);
@@ -247,6 +259,15 @@ export const handler = async (event) => {
     }
 
     const dateOverride = event?.queryStringParameters?.date;
+    if (!dateOverride && !isLocalTime(FAMLY_TZ, 18, 30)) {
+      return {
+        statusCode: 204,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          message: `Skipping run outside ${FAMLY_TZ} 18:30 window.`,
+        }),
+      };
+    }
     const dayStr = dateOverride || isoDateInTimeZone(FAMLY_TZ);
 
     const accessToken = await authenticate();
