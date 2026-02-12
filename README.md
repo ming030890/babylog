@@ -27,7 +27,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1lkdpAoJ23UfuZ4f9RK-g5B
 
 ## Famly import cron
 
-Netlify runs `netlify/functions/famly-cron.js` on a daily schedule (`@daily`) to pull BM + milk events from Famly
+Netlify runs `netlify/functions/famly-cron.js` on a weekday schedule (`0 18 * * 1-5`, 18:00 UTC) to pull BM + milk events from Famly
 and insert new rows into `activity_logs`. You can manually invoke it locally with:
 
 `/.netlify/functions/famly-cron?date=YYYY-MM-DD`
+
+`date` also accepts ISO datetimes (for example `2026-02-11T09:30:00Z`), which are normalized to the configured `FAMLY_TZ` day.
