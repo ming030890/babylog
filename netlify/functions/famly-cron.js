@@ -23,8 +23,6 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 };
 
-const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
 export const config = {
   schedule: '0 18 * * 1-5',
 };
@@ -142,49 +140,8 @@ const fetchCalendar = async (accessToken, day, toDay, childId) => {
   return data;
 };
 
-const isoDateInTimeZone = (timeZone, date = new Date()) => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-
-  const year = parts.find((part) => part.type === 'year')?.value;
-  const month = parts.find((part) => part.type === 'month')?.value;
-  const day = parts.find((part) => part.type === 'day')?.value;
-
-  if (!year || !month || !day) {
-    throw new Error(`Failed to format date for timeZone: ${timeZone}`);
-  }
-
-  return `${year}-${month}-${day}`;
-};
-
-const normalizeDateInput = (input, timeZone) => {
-  if (!input) {
-    return { day: isoDateInTimeZone(timeZone) };
-  }
-
-  const trimmed = String(input).trim();
-  if (!trimmed) {
-    return { day: isoDateInTimeZone(timeZone) };
-  }
-
-  if (DATE_ONLY_REGEX.test(trimmed)) {
-    return { day: trimmed };
-  }
-
-  const parsedDate = new Date(trimmed);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return {
-      error:
-        'Invalid date override. Use YYYY-MM-DD (preferred) or a valid ISO datetime (e.g. 2026-02-11T09:30:00Z).',
-    };
-  }
-
-  return { day: isoDateInTimeZone(timeZone, parsedDate) };
-};
+const isoDateInTimeZone = (timeZone, date = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
 
 const unitAmountToMl = (unitAmount) => {
   if (unitAmount == null) return null;
@@ -290,14 +247,7 @@ export const handler = async (event) => {
     }
 
     const dateOverride = event?.queryStringParameters?.date;
-    const { day: dayStr, error: dateError } = normalizeDateInput(dateOverride, FAMLY_TZ);
-    if (dateError) {
-      return {
-        statusCode: 400,
-        headers: jsonHeaders,
-        body: JSON.stringify({ error: dateError }),
-      };
-    }
+    const dayStr = dateOverride || isoDateInTimeZone(FAMLY_TZ);
 
     const accessToken = await authenticate();
     const data = await fetchCalendar(accessToken, dayStr, dayStr, FAMLY_CHILD_ID);
@@ -339,10 +289,4 @@ export const handler = async (event) => {
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
-
-
-export const __test = {
-  isoDateInTimeZone,
-  normalizeDateInput,
 };
