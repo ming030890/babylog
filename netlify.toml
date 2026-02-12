@@ -2,3 +2,5 @@
   command = "npm run build"
   publish = "dist"
 
+[functions."famly-cron"]
+  schedule = "0 18 * * 1-5"
