@@ -164,18 +164,74 @@ const findDay = (periods, dayLocalDate) => {
   return null;
 };
 
+const getEvents = (dayObj) => {
+  for (const key of ['events', 'items', 'activities', 'dayEvents']) {
+    if (Array.isArray(dayObj?.[key]) && dayObj[key].length) return dayObj[key];
+  }
+  return [];
+};
+
+const getEmbed = (event) => {
+  for (const key of ['embed', 'embedded', 'data', 'payload']) {
+    const val = event?.[key];
+    if (val && typeof val === 'object') return val;
+  }
+  return {};
+};
+
+const getEventTimestamp = (event) =>
+  event?.from || event?.start || event?.startDate || event?.startDateTime || event?.datetime || null;
+
+const getMealItems = (event, embed) => {
+  for (const key of ['mealItems', 'items', 'meal_items']) {
+    if (Array.isArray(embed?.[key]) && embed[key].length) return embed[key];
+    if (Array.isArray(event?.[key]) && event[key].length) return event[key];
+  }
+  return [];
+};
+
+const isBmType = (type) => {
+  const normalizedType = (type || '').toUpperCase();
+  return (
+    normalizedType.includes('BM') ||
+    normalizedType.includes('BOWEL') ||
+    normalizedType.includes('SOIL') ||
+    normalizedType.includes('POO') ||
+    normalizedType.includes('DIRTY') ||
+    normalizedType.includes('MIXED')
+  );
+};
+
+const looksLikeMilk = (title, eventTitle, item) => {
+  const foodTitle = (title || '').toLowerCase();
+  const normalizedEventTitle = (eventTitle || '').toLowerCase();
+  return (
+    foodTitle.includes('milk') ||
+    foodTitle.includes('formula') ||
+    foodTitle.includes('breast') ||
+    normalizedEventTitle.includes('bottle') ||
+    normalizedEventTitle.includes('milk') ||
+    normalizedEventTitle.includes('formula') ||
+    (item?.unitAmount != null && item?.unit)
+  );
+};
+
 const extractEvents = (dayObj) => {
   const bmEvents = [];
   const milkEvents = [];
 
-  for (const event of dayObj?.events ?? []) {
-    const embed = event?.embed ?? {};
-    const title = (event?.title || '').toLowerCase();
-    const timestamp = event?.from;
+  const events = getEvents(dayObj);
 
-    if (embed?.actionType === 'DIAPERCHANGE') {
-      const diaperingType = (embed?.diaperingType || '').toUpperCase();
-      if (diaperingType.includes('BM')) {
+  for (const event of events) {
+    const embed = getEmbed(event);
+    const title = (event?.title || embed?.title || '').trim();
+    const timestamp = getEventTimestamp(event);
+
+    const actionType = (embed?.actionType || embed?.type || '').toUpperCase();
+
+    if (actionType.includes('DIAPER') || actionType.includes('NAPPY') || actionType === 'DIAPERCHANGE') {
+      const diaperingType = (embed?.diaperingType || embed?.diaperType || title || '').toUpperCase();
+      if (isBmType(diaperingType)) {
         bmEvents.push({
           timestamp,
           eventType: 'diaper_bm',
@@ -185,17 +241,21 @@ const extractEvents = (dayObj) => {
       }
     }
 
-    if (embed?.type === 'mealRegistration') {
-      const mealItems = embed?.mealItems ?? [];
+    const mealType = (embed?.type || embed?.actionType || '').toLowerCase();
+    const mealItems = getMealItems(event, embed);
+    const isMeal = mealType === 'mealregistration' || mealType === 'meal_registration' || mealItems.length > 0;
+
+    if (isMeal) {
       const hasMilk = mealItems.some((item) => {
-        const foodTitle = (item?.foodItem?.title || '').toLowerCase();
-        return foodTitle.includes('milk') || title.includes('bottle');
+        const foodTitle = (item?.foodItem?.title || item?.title || item?.name || '').toLowerCase();
+        return looksLikeMilk(foodTitle, title, item);
       });
 
       if (!hasMilk) continue;
 
       for (const item of mealItems) {
-        const ml = unitAmountToMl(item?.unitAmount);
+        const unitAmount = item?.unitAmount ?? item?.amount ?? item?.quantity ?? item?.value ?? null;
+        const ml = unitAmountToMl(unitAmount);
         if (ml == null) continue;
         milkEvents.push({
           timestamp,
