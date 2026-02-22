@@ -1,23 +1,8 @@
+import { GEMINI_ENDPOINT, parseStructuredJson, defaultGenerationConfig } from './_shared/geminiJson.js';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
-
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
-};
-
-const parseStructuredJson = (responseData) => {
-  const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!responseText || typeof responseText !== 'string') {
-    return { error: 'Empty response from Gemini' };
-  }
-
-  try {
-    return { data: JSON.parse(responseText) };
-  } catch (parseError) {
-    return { error: 'Failed to parse JSON from Gemini', details: parseError.message };
-  }
 };
 
 export const handler = async (event) => {
@@ -80,7 +65,7 @@ export const handler = async (event) => {
           },
         ],
         generationConfig: {
-          responseMimeType: 'application/json',
+          ...defaultGenerationConfig,
           responseJsonSchema: {
             type: 'object',
             properties: {
