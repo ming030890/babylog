@@ -19,7 +19,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1lkdpAoJ23UfuZ4f9RK-g5B
    - `GEMINI_API_KEY`
    - `NETLIFY_DATABASE_URL` (or `NETLIFY_DATABASE_URL_UNPOOLED`)
    - `FAMLY_EMAIL`, `FAMLY_PASSWORD`, `FAMLY_CHILD_ID` (for the Famly import cron)
-   - `FAMLY_TZ` (optional, default: `Europe/London`)
+   - `FAMLY_TZ` (optional, default: `Europe/London`; used for Famly import and AI time parsing context)
    - `FAMLY_MILK_UNIT` (optional, `oz` or `ml`, default: `oz`)
    - `FAMLY_INSTALLATION_ID`, `FAMLY_PLATFORM`, `FAMLY_VERSION` (optional override headers)
 3. Run the app locally with Netlify Functions:
