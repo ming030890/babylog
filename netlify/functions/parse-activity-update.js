@@ -1,5 +1,6 @@
 import { GEMINI_ENDPOINT, parseStructuredJson, defaultGenerationConfig } from './_shared/geminiJson.js';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
+import { getTimeZoneContext } from './_shared/timeContext.js';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -20,12 +21,13 @@ export const handler = async (event) => {
     }
 
     const apiKey = getGeminiApiKey();
-    const now = new Date();
-    const dateContext = now.toISOString();
+    const { nowUtcIso, nowLocalIso, timeZone } = getTimeZoneContext();
     const knownList = Array.isArray(knownTypes) ? knownTypes : [];
 
     const prompt = `
-      Current System Time: ${dateContext}
+      Current System Time (UTC): ${nowUtcIso}
+      Current System Time (Configured Local): ${nowLocalIso}
+      Configured Time Zone: ${timeZone}
       Known Event Types: ${knownList.join(', ')}
 
       Existing Activity (do not lose details unless the instruction says to change them):
@@ -42,8 +44,9 @@ export const handler = async (event) => {
          - Do not include any schema changes or database instructions.
       3. Timestamp:
          - If the instruction includes a time (e.g., "16:30"), combine it with the Current System Date.
+         - Use the Configured Time Zone for any date/time interpretation.
          - If no time is provided, keep the existing timestamp.
-         - Return as ISO 8601 string.
+         - Always return ISO 8601 with an explicit timezone offset or Z.
       4. Event Type:
          - Try to reuse one of the "Known Event Types" if semantically similar.
          - Otherwise keep or create a concise label using the user's casing.

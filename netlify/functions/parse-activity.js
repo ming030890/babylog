@@ -1,5 +1,6 @@
 import { GEMINI_ENDPOINT, parseStructuredJson, defaultGenerationConfig } from './_shared/geminiJson.js';
 import { getGeminiApiKey } from './_shared/googleAuth.js';
+import { getTimeZoneContext } from './_shared/timeContext.js';
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -17,12 +18,13 @@ export const handler = async (event) => {
     }
 
     const apiKey = getGeminiApiKey();
-    const now = new Date();
-    const dateContext = now.toISOString();
+    const { nowUtcIso, nowLocalIso, timeZone } = getTimeZoneContext();
     const knownList = Array.isArray(knownTypes) ? knownTypes : [];
 
     const prompt = `
-      Current System Time: ${dateContext}
+      Current System Time (UTC): ${nowUtcIso}
+      Current System Time (Configured Local): ${nowLocalIso}
+      Configured Time Zone: ${timeZone}
       Known Event Types: ${knownList.join(', ')}
       
       Task: Parse the User Input into one or more structured baby activity log entries.
@@ -30,8 +32,9 @@ export const handler = async (event) => {
       Rules:
       1. Timestamp: 
          - If time is provided in input (e.g., "15:00"), combine it with the Current System Date.
+         - Use the Configured Time Zone for any date/time interpretation.
          - If no time is provided, use the Current System Time exactly.
-         - Return as ISO 8601 string.
+         - Always return ISO 8601 with an explicit timezone offset or Z.
       2. Event Type:
          - Try to reuse one of the "Known Event Types" if semantically similar (e.g., "fed" -> "feed_ml").
          - If it's a new type of activity, create a concise label using the user's casing.
