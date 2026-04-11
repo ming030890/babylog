@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Plus,
   Baby,
@@ -22,7 +22,9 @@ import {
 import { AppState, ActivityLog, ParsedActivity } from './types';
 import { initDatabaseServices, fetchActivities, appendActivity, deleteActivity, updateActivity } from './services/dbService';
 import { parseActivityText, parseActivityUpdate } from './services/geminiService';
-import { ActivityInput } from './components/ActivityInput';
+const ActivityInput = React.lazy(() =>
+  import('./components/ActivityInput').then((module) => ({ default: module.ActivityInput }))
+);
 
 const DAYS_PER_PAGE = 14;
 const TOP_SUGGESTIONS_COUNT = 4;
@@ -536,25 +538,27 @@ const App: React.FC = () => {
         </button>
       )}
 
-      <ActivityInput 
-        isOpen={isInputOpen} 
-        onClose={() => {
-          setIsInputOpen(false);
-          setInputError(null);
-          setEditingLog(null);
-        }} 
-        onSubmit={editingLog ? handleLogUpdate : handleLogSubmit}
-        isProcessing={isProcessing}
-        errorMessage={inputError}
-        onClearError={() => setInputError(null)}
-        mode={editingLog ? 'edit' : 'add'}
-        existingSummary={
-          editingLog
-            ? `${formatTime(editingLog.timestamp)} · ${editingLog.eventType}${editingLog.value ? ` · ${editingLog.value}` : ''}`
-            : undefined
-        }
-        suggestions={topSuggestions}
-      />
+      <Suspense fallback={null}>
+        <ActivityInput 
+          isOpen={isInputOpen} 
+          onClose={() => {
+            setIsInputOpen(false);
+            setInputError(null);
+            setEditingLog(null);
+          }} 
+          onSubmit={editingLog ? handleLogUpdate : handleLogSubmit}
+          isProcessing={isProcessing}
+          errorMessage={inputError}
+          onClearError={() => setInputError(null)}
+          mode={editingLog ? 'edit' : 'add'}
+          existingSummary={
+            editingLog
+              ? `${formatTime(editingLog.timestamp)} · ${editingLog.eventType}${editingLog.value ? ` · ${editingLog.value}` : ''}`
+              : undefined
+          }
+          suggestions={topSuggestions}
+        />
+      </Suspense>
     </div>
   );
 };
